@@ -1,7 +1,7 @@
 {
   "name": "Simulasi 9 Kompetensi ASN",
   "short_name": "9 Kompetensi ASN",
-  "description": "Simulasi latihan 100 soal untuk delapan kompetensi manajerial dan satu kompetensi sosial kultural ASN.",
+  "description": "Simulasi latihan 100 soal yang dipilih acak dari bank 200 soal untuk delapan kompetensi manajerial dan satu kompetensi sosial kultural ASN.",
   "lang": "id-ID",
   "start_url": "./",
   "scope": "./",

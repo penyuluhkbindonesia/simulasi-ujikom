@@ -2,10 +2,22 @@
   "use strict";
 
   const CONFIG = Object.freeze({
-    version: "1.0.0",
+    version: "1.1.0",
     durationMinutes: 120,
-    storageKey: "asn9-kompetensi-test-v1",
-    totalQuestions: 100
+    storageKey: "asn9-kompetensi-test-v2",
+    totalQuestions: 100,
+    bankSize: 200,
+    competencyQuota: Object.freeze({
+      integritas: 12,
+      kerja_sama: 11,
+      komunikasi: 11,
+      orientasi_hasil: 11,
+      pelayanan_publik: 11,
+      pengembangan: 11,
+      perubahan: 11,
+      keputusan: 11,
+      perekat_bangsa: 11
+    })
   });
 
   const COMPETENCIES = [
@@ -56,12 +68,25 @@
     }
   ];
 
-  if (!Array.isArray(window.QUESTION_BANK) || window.QUESTION_BANK.length !== CONFIG.totalQuestions) {
-    document.body.innerHTML = "<main style='padding:32px;font-family:sans-serif'><h1>Bank soal tidak dapat dimuat</h1><p>Pastikan file questions.js tersedia dan memuat 100 soal.</p></main>";
+  const questions = Array.isArray(window.QUESTION_BANK) ? window.QUESTION_BANK : [];
+  const questionIds = new Set(questions.map((question) => question.id));
+  const bankIsValid = questions.length === CONFIG.bankSize
+    && questionIds.size === CONFIG.bankSize
+    && questions.every((question) =>
+      Number.isInteger(question.id)
+      && typeof question.competency === "string"
+      && Array.isArray(question.options)
+      && question.options.length === 5
+      && Number.isInteger(question.answer)
+      && question.answer >= 0
+      && question.answer < 5
+    );
+
+  if (!bankIsValid) {
+    document.body.innerHTML = "<main style='padding:32px;font-family:sans-serif'><h1>Bank soal tidak dapat dimuat</h1><p>Pastikan questions.js tersedia dan memuat 200 soal yang valid.</p></main>";
     return;
   }
 
-  const questions = window.QUESTION_BANK;
   const questionById = new Map(questions.map((question) => [question.id, question]));
 
   const dom = {
@@ -125,13 +150,26 @@
       const parsed = JSON.parse(raw);
       const validOrder = Array.isArray(parsed.questionOrder)
         && parsed.questionOrder.length === CONFIG.totalQuestions
+        && new Set(parsed.questionOrder).size === CONFIG.totalQuestions
         && parsed.questionOrder.every((id) => questionById.has(id));
-      if (parsed.version !== CONFIG.version || !validOrder || !parsed.startedAt || !parsed.endsAt) {
+      const validOptionOrders = parsed.optionOrders
+        && typeof parsed.optionOrders === "object"
+        && parsed.questionOrder?.every((id) =>
+          Array.isArray(parsed.optionOrders[id])
+          && parsed.optionOrders[id].length === 5
+          && new Set(parsed.optionOrders[id]).size === 5
+          && parsed.optionOrders[id].every((optionIndex) =>
+            Number.isInteger(optionIndex) && optionIndex >= 0 && optionIndex < 5
+          )
+        );
+      if (parsed.version !== CONFIG.version || !validOrder || !validOptionOrders || !parsed.startedAt || !parsed.endsAt) {
         return null;
       }
       parsed.answers = parsed.answers && typeof parsed.answers === "object" ? parsed.answers : {};
       parsed.flagged = Array.isArray(parsed.flagged) ? parsed.flagged : [];
-      parsed.currentPosition = Number.isInteger(parsed.currentPosition) ? parsed.currentPosition : 0;
+      parsed.currentPosition = Number.isInteger(parsed.currentPosition)
+        ? Math.min(Math.max(parsed.currentPosition, 0), CONFIG.totalQuestions - 1)
+        : 0;
       return parsed;
     } catch (error) {
       console.warn("Gagal membaca progres tersimpan.", error);
@@ -166,9 +204,52 @@
     return copy;
   }
 
+  function selectQuestionIds() {
+    const selected = [];
+
+    Object.entries(CONFIG.competencyQuota).forEach(([competency, quota]) => {
+      const pool = questions
+        .filter((question) => question.competency === competency)
+        .map((question) => question.id);
+
+      if (pool.length < quota) {
+        throw new Error(`Bank soal kompetensi ${competency} tidak mencukupi.`);
+      }
+
+      selected.push(...shuffle(pool).slice(0, quota));
+    });
+
+    if (selected.length !== CONFIG.totalQuestions) {
+      throw new Error("Komposisi soal tes tidak sama dengan 100.");
+    }
+
+    return shuffle(selected);
+  }
+
+  function createOptionOrders(questionOrder) {
+    return Object.fromEntries(
+      questionOrder.map((questionId) => [questionId, shuffle([0, 1, 2, 3, 4])])
+    );
+  }
+
+  function activeQuestions() {
+    return state.questionOrder.map((questionId) => questionById.get(questionId));
+  }
+
+  function displayedOptionOrder(questionId) {
+    return state.optionOrders[questionId] || [0, 1, 2, 3, 4];
+  }
+
+  function displayedLetter(questionId, originalOptionIndex) {
+    const displayedIndex = displayedOptionOrder(questionId).indexOf(originalOptionIndex);
+    return displayedIndex >= 0 ? String.fromCharCode(65 + displayedIndex) : "?";
+  }
+
   function createTestState() {
     const now = Date.now();
     const participant = dom.participantName.value.trim() || "Peserta Latihan";
+    const questionOrder = selectQuestionIds();
+
     return {
       version: CONFIG.version,
       participant,
@@ -176,7 +257,8 @@
       endsAt: now + (CONFIG.durationMinutes * 60 * 1000),
       completedAt: null,
       completionReason: null,
-      questionOrder: shuffle(questions.map((question) => question.id)),
+      questionOrder,
+      optionOrders: createOptionOrders(questionOrder),
       answers: {},
       flagged: [],
       currentPosition: 0
@@ -232,7 +314,8 @@
       heading.textContent = competency.label;
 
       const description = document.createElement("p");
-      description.textContent = `${competency.description} (${counts[competency.key]} soal)`;
+      const quota = CONFIG.competencyQuota[competency.key];
+      description.textContent = `${competency.description} (bank ${counts[competency.key]} soal; ${quota} soal per tes)`;
 
       article.append(heading, description);
       dom.competencyGrid.append(article);
@@ -344,21 +427,23 @@
     dom.nextButton.textContent = state.currentPosition === CONFIG.totalQuestions - 1 ? "Tinjau dan Akhiri" : "Berikutnya";
 
     dom.answerOptions.replaceChildren();
-    question.options.forEach((option, optionIndex) => {
+    displayedOptionOrder(question.id).forEach((originalOptionIndex, displayedIndex) => {
+      const option = question.options[originalOptionIndex];
       const label = document.createElement("label");
       label.className = "answer-choice";
-      if (selectedAnswer === optionIndex) label.classList.add("selected");
+      label.dataset.originalIndex = String(originalOptionIndex);
+      if (selectedAnswer === originalOptionIndex) label.classList.add("selected");
 
       const input = document.createElement("input");
       input.type = "radio";
       input.name = `question-${question.id}`;
-      input.value = String(optionIndex);
-      input.checked = selectedAnswer === optionIndex;
-      input.addEventListener("change", () => selectAnswer(question.id, optionIndex));
+      input.value = String(originalOptionIndex);
+      input.checked = selectedAnswer === originalOptionIndex;
+      input.addEventListener("change", () => selectAnswer(question.id, originalOptionIndex));
 
       const letter = document.createElement("span");
       letter.className = "option-letter";
-      letter.textContent = String.fromCharCode(65 + optionIndex);
+      letter.textContent = String.fromCharCode(65 + displayedIndex);
 
       const text = document.createElement("span");
       text.className = "option-text";
@@ -376,8 +461,8 @@
     state.answers[questionId] = optionIndex;
     saveState();
 
-    [...dom.answerOptions.querySelectorAll(".answer-choice")].forEach((choice, index) => {
-      choice.classList.toggle("selected", index === optionIndex);
+    [...dom.answerOptions.querySelectorAll(".answer-choice")].forEach((choice) => {
+      choice.classList.toggle("selected", Number(choice.dataset.originalIndex) === optionIndex);
     });
 
     updateProgress();
@@ -488,7 +573,7 @@
     let correct = 0;
     let answered = 0;
 
-    questions.forEach((question) => {
+    activeQuestions().forEach((question) => {
       const selected = state.answers[question.id];
       const category = perCompetency[question.competency];
       category.total += 1;
@@ -610,7 +695,7 @@
     const statusFilter = dom.reviewStatusFilter.value;
     const competencyFilter = dom.reviewCompetencyFilter.value;
 
-    const filtered = questions.filter((question) => {
+    const filtered = activeQuestions().filter((question) => {
       const status = getQuestionStatus(question);
       const statusMatch = statusFilter === "all"
         || status === statusFilter
@@ -643,7 +728,8 @@
 
       const number = document.createElement("span");
       number.className = "review-number";
-      number.textContent = `#${question.id}`;
+      const testPosition = state.questionOrder.indexOf(question.id) + 1;
+      number.textContent = `Soal ${testPosition}`;
 
       const competency = document.createElement("span");
       competency.className = "review-competency";
@@ -672,7 +758,7 @@
       userStrong.textContent = "Jawaban Anda: ";
       const userText = document.createElement("span");
       userText.textContent = Number.isInteger(selected)
-        ? `${String.fromCharCode(65 + selected)}. ${question.options[selected]}`
+        ? `${displayedLetter(question.id, selected)}. ${question.options[selected]}`
         : "Tidak dijawab";
       userAnswer.append(userStrong, userText);
 
@@ -681,7 +767,7 @@
       const correctStrong = document.createElement("strong");
       correctStrong.textContent = "Jawaban terbaik: ";
       const correctText = document.createElement("span");
-      correctText.textContent = `${String.fromCharCode(65 + question.answer)}. ${question.options[question.answer]}`;
+      correctText.textContent = `${displayedLetter(question.id, question.answer)}. ${question.options[question.answer]}`;
       correctAnswer.append(correctStrong, correctText);
 
       answerBox.append(userAnswer, correctAnswer);
@@ -756,8 +842,10 @@
 
     const key = event.key.toUpperCase();
     if (["A", "B", "C", "D", "E"].includes(key)) {
-      const optionIndex = key.charCodeAt(0) - 65;
-      selectAnswer(currentQuestion().id, optionIndex);
+      const displayedIndex = key.charCodeAt(0) - 65;
+      const question = currentQuestion();
+      const originalOptionIndex = displayedOptionOrder(question.id)[displayedIndex];
+      selectAnswer(question.id, originalOptionIndex);
       renderQuestion();
       event.preventDefault();
     } else if (event.key === "ArrowRight") {

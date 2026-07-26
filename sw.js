@@ -1,4 +1,4 @@
-const CACHE_NAME = "asn9-kompetensi-v1.0.0";
+const CACHE_NAME = "asn9-kompetensi-v1.1.0";
 const ROOT = new URL("./", self.location.href);
 const APP_SHELL = [
   new URL("./", ROOT).href,
