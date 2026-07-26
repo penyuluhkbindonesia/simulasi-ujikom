@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#123a63">
+  <meta name="description" content="Simulasi PWA uji sembilan kompetensi ASN untuk persiapan Assessment Center.">
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <title>Simulasi 9 Kompetensi ASN</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Lewati ke konten utama</a>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <img src="./icons/icon-192.png" alt="" width="44" height="44">
+        <div>
+          <p class="brand-kicker">Simulasi Assessment Center</p>
+          <h1>9 Kompetensi ASN</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="network-badge" class="status-badge" aria-live="polite">Memeriksa jaringan…</span>
+        <button id="install-button" class="button button-ghost button-small" type="button" hidden>Pasang Aplikasi</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content" class="app-main">
+    <section id="screen-home" class="screen" aria-labelledby="home-title">
+      <div class="hero-card">
+        <div class="hero-copy">
+          <span class="eyebrow">Latihan mandiri berbasis Situational Judgement Test</span>
+          <h2 id="home-title">Uji pemahaman sembilan kompetensi ASN</h2>
+          <p>
+            Kerjakan 100 soal kasus dengan waktu 120 menit. Setelah selesai, aplikasi menampilkan skor,
+            profil per kompetensi, jawaban yang benar, dan analisis setiap soal.
+          </p>
+          <div class="hero-stats" aria-label="Ringkasan simulasi">
+            <div><strong>100</strong><span>Soal</span></div>
+            <div><strong>120</strong><span>Menit</span></div>
+            <div><strong>9</strong><span>Kompetensi</span></div>
+            <div><strong>Offline</strong><span>Setelah kunjungan pertama</span></div>
+          </div>
+        </div>
+        <div class="hero-panel">
+          <label for="participant-name">Nama peserta <span>(opsional)</span></label>
+          <input id="participant-name" type="text" maxlength="80" autocomplete="name" placeholder="Masukkan nama">
+          <label class="check-row">
+            <input id="readiness-check" type="checkbox">
+            <span>Saya memahami bahwa aplikasi ini adalah simulasi latihan, bukan hasil penilaian resmi.</span>
+          </label>
+          <button id="start-button" class="button button-primary button-large" type="button" disabled>Mulai Tes Baru</button>
+          <button id="resume-button" class="button button-secondary" type="button" hidden>Lanjutkan Tes Tersimpan</button>
+          <p id="resume-note" class="helper-text" hidden></p>
+        </div>
+      </div>
+
+      <section class="content-card" aria-labelledby="competency-title">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Cakupan</span>
+            <h2 id="competency-title">Delapan kompetensi manajerial dan satu sosial kultural</h2>
+          </div>
+        </div>
+        <div id="competency-grid" class="competency-grid"></div>
+      </section>
+
+      <section class="notice-card" aria-label="Catatan penggunaan">
+        <strong>Catatan penting.</strong>
+        <p>
+          Seluruh soal dan kunci jawaban berada di sisi pengguna karena GitHub Pages merupakan hosting statis.
+          Aplikasi ini tepat untuk latihan dan pembelajaran, tetapi tidak dirancang sebagai sistem ujian resmi yang
+          memerlukan kerahasiaan bank soal, autentikasi peserta, atau pengawasan terpusat.
+        </p>
+      </section>
+    </section>
+
+    <section id="screen-quiz" class="screen" hidden aria-labelledby="quiz-title">
+      <div class="quiz-toolbar">
+        <div>
+          <p class="quiz-label">Peserta</p>
+          <strong id="quiz-participant">Peserta Latihan</strong>
+        </div>
+        <div class="toolbar-progress">
+          <div class="progress-label">
+            <span id="progress-text">Soal 1 dari 100</span>
+            <span id="answered-text">0 dijawab</span>
+          </div>
+          <div class="progress-track" aria-hidden="true"><span id="progress-bar"></span></div>
+        </div>
+        <div class="timer-box" aria-live="polite">
+          <span>Sisa waktu</span>
+          <strong id="timer">120:00</strong>
+        </div>
+      </div>
+
+      <div class="quiz-layout">
+        <article class="question-card">
+          <div class="question-meta">
+            <span id="question-number" class="number-pill">Soal 1</span>
+            <span id="question-competency" class="competency-pill">Integritas</span>
+            <span id="flag-status" class="flag-pill" hidden>Ditandai</span>
+          </div>
+          <h2 id="quiz-title" class="sr-only">Pertanyaan simulasi</h2>
+          <p id="question-scenario" class="scenario"></p>
+          <h3 id="question-prompt" class="question-prompt"></h3>
+          <fieldset id="answer-options" class="answer-options">
+            <legend class="sr-only">Pilih satu jawaban</legend>
+          </fieldset>
+
+          <div class="question-actions">
+            <button id="previous-button" class="button button-secondary" type="button">Sebelumnya</button>
+            <button id="flag-button" class="button button-ghost" type="button">Tandai untuk Ditinjau</button>
+            <button id="next-button" class="button button-primary" type="button">Berikutnya</button>
+          </div>
+        </article>
+
+        <aside class="navigator-card" aria-labelledby="navigator-title">
+          <div class="navigator-heading">
+            <div>
+              <span class="eyebrow">Navigasi</span>
+              <h2 id="navigator-title">Daftar soal</h2>
+            </div>
+            <button id="toggle-navigator" class="button button-ghost button-small" type="button" aria-expanded="true">Sembunyikan</button>
+          </div>
+          <div id="question-navigator" class="question-navigator"></div>
+          <div class="navigator-legend">
+            <span><i class="legend-current"></i>Saat ini</span>
+            <span><i class="legend-answered"></i>Dijawab</span>
+            <span><i class="legend-flagged"></i>Ditandai</span>
+            <span><i class="legend-empty"></i>Belum</span>
+          </div>
+          <button id="finish-button" class="button button-danger button-full" type="button">Akhiri dan Nilai Tes</button>
+        </aside>
+      </div>
+    </section>
+
+    <section id="screen-result" class="screen" hidden aria-labelledby="result-title">
+      <div class="result-hero">
+        <div>
+          <span class="eyebrow">Hasil simulasi</span>
+          <h2 id="result-title">Ringkasan hasil</h2>
+          <p id="result-participant"></p>
+        </div>
+        <div class="result-actions">
+          <button id="print-button" class="button button-secondary" type="button">Cetak Hasil</button>
+          <button id="restart-button" class="button button-primary" type="button">Kerjakan Ulang</button>
+        </div>
+      </div>
+
+      <div class="score-grid">
+        <section class="score-card score-primary">
+          <span>Skor akhir</span>
+          <strong id="score-percent">0%</strong>
+          <small id="score-fraction">0 dari 100 benar</small>
+        </section>
+        <section class="score-card">
+          <span>Jawaban benar</span>
+          <strong id="correct-count">0</strong>
+          <small>dari 100 soal</small>
+        </section>
+        <section class="score-card">
+          <span>Jawaban salah</span>
+          <strong id="wrong-count">0</strong>
+          <small>perlu ditinjau</small>
+        </section>
+        <section class="score-card">
+          <span>Tidak dijawab</span>
+          <strong id="unanswered-count">0</strong>
+          <small>otomatis bernilai 0</small>
+        </section>
+        <section class="score-card">
+          <span>Waktu digunakan</span>
+          <strong id="time-used">00:00</strong>
+          <small>dari 120 menit</small>
+        </section>
+      </div>
+
+      <section class="content-card" aria-labelledby="interpretation-title">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Interpretasi latihan</span>
+            <h2 id="interpretation-title">Gambaran umum</h2>
+          </div>
+        </div>
+        <p id="result-interpretation" class="interpretation-text"></p>
+        <p class="helper-text">
+          Rentang interpretasi ini dibuat untuk latihan dan tidak merupakan ambang kelulusan resmi.
+        </p>
+      </section>
+
+      <section class="content-card" aria-labelledby="breakdown-title">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Profil kompetensi</span>
+            <h2 id="breakdown-title">Skor per kompetensi</h2>
+          </div>
+        </div>
+        <div id="competency-breakdown" class="breakdown-list"></div>
+      </section>
+
+      <section class="content-card review-section" aria-labelledby="review-title">
+        <div class="section-heading review-heading">
+          <div>
+            <span class="eyebrow">Pembahasan</span>
+            <h2 id="review-title">Jawaban benar dan analisis</h2>
+          </div>
+          <div class="review-filters">
+            <label>
+              Status
+              <select id="review-status-filter">
+                <option value="all">Semua jawaban</option>
+                <option value="wrong">Salah dan kosong</option>
+                <option value="correct">Benar</option>
+                <option value="unanswered">Tidak dijawab</option>
+              </select>
+            </label>
+            <label>
+              Kompetensi
+              <select id="review-competency-filter">
+                <option value="all">Semua kompetensi</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div id="review-list" class="review-list"></div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>Simulasi 9 Kompetensi ASN · Materi latihan mandiri · Versi 1.0.0</p>
+  </footer>
+
+  <dialog id="finish-dialog" class="confirm-dialog">
+    <form method="dialog">
+      <h2>Akhiri tes sekarang?</h2>
+      <p id="finish-dialog-text">Jawaban yang belum diisi akan dinilai salah.</p>
+      <div class="dialog-actions">
+        <button class="button button-secondary" value="cancel">Kembali Mengerjakan</button>
+        <button id="confirm-finish-button" class="button button-danger" value="confirm">Akhiri dan Lihat Hasil</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="./questions.js" defer></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>
